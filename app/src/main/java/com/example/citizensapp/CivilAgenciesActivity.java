@@ -41,7 +41,7 @@ public class CivilAgenciesActivity extends AppCompatActivity {
         mUsersList.setHasFixedSize(true);
         mUsersList.setLayoutManager(new LinearLayoutManager(this));
 
-        mUsersDatabaseReference= FirebaseDatabase.getInstance().getReference().child("users");
+        mUsersDatabaseReference= FirebaseDatabase.getInstance().getReference().child("users").child("civil");
         mUsersDatabaseReference.keepSynced(true);
     }
 
