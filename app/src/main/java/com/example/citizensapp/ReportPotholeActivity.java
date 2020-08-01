@@ -7,6 +7,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SyncRequest;
 import android.content.pm.PackageManager;
+import android.location.Location;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.PorterDuff;
@@ -42,6 +43,17 @@ import androidx.core.content.ContextCompat;
 import androidx.core.content.FileProvider;
 
 import com.google.android.gms.tasks.OnCompleteListener;
+import com.google.android.gms.common.GooglePlayServicesNotAvailableException;
+import com.google.android.gms.common.GooglePlayServicesRepairableException;
+import com.google.android.gms.location.places.ui.PlacePicker;
+import com.google.android.gms.location.FusedLocationProviderClient;
+import com.google.android.gms.location.LocationServices;
+import com.google.android.gms.maps.CameraUpdateFactory;
+import com.google.android.gms.maps.GoogleMap;
+import com.google.android.gms.maps.OnMapReadyCallback;
+import com.google.android.gms.maps.SupportMapFragment;
+import com.google.android.gms.maps.model.LatLng;
+import com.google.android.gms.maps.model.MarkerOptions;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
@@ -87,7 +99,17 @@ import org.w3c.dom.Text;
 
 import de.hdodenhof.circleimageview.CircleImageView;
 
-public class ReportPotholeActivity extends AppCompatActivity {
+public class ReportPotholeActivity extends AppCompatActivity implements OnMapReadyCallback {
+
+    private static final int PLACE_PICKER_REQUEST = 11;
+    Button btpicker;
+    String lat,lang;
+    EditText dimension;
+
+    Location currentLocation;
+    FusedLocationProviderClient fusedLocationProviderClient;
+    private static final int LOCATION_REQUEST_CODE = 101;
+
 //    private RecyclerView recyclerView;
 //    private ChatAdapter mAdapter;
     private ArrayList messageArrayList;
@@ -158,6 +180,24 @@ public class ReportPotholeActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_report_pothole);
+
+        fusedLocationProviderClient = LocationServices.getFusedLocationProviderClient(this);
+        fetchLastLocation();
+        dimension=findViewById(R.id.dimension);
+        btpicker = findViewById(R.id.map_location_picker);
+        btpicker.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                PlacePicker.IntentBuilder builder = new PlacePicker.IntentBuilder();
+                try {
+                    startActivityForResult(builder.build(ReportPotholeActivity.this), PLACE_PICKER_REQUEST);
+                }catch (GooglePlayServicesRepairableException e){
+                    e.printStackTrace();
+                }catch (GooglePlayServicesNotAvailableException e){
+                    e.printStackTrace();
+                }
+            }
+        });
 
         inputMessage = findViewById(R.id.potholes_comments_textview);
         btnRecord = findViewById(R.id.btn_record);
@@ -311,6 +351,35 @@ public class ReportPotholeActivity extends AppCompatActivity {
             }
         });
     }
+    private void fetchLastLocation() {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) != PackageManager.PERMISSION_GRANTED && ActivityCompat.checkSelfPermission(this, Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+            ActivityCompat.requestPermissions(this, new String[]
+                    {Manifest.permission.ACCESS_FINE_LOCATION}, LOCATION_REQUEST_CODE);
+            return;
+        }
+        Task<Location> task = fusedLocationProviderClient.getLastLocation();
+        task.addOnSuccessListener(new OnSuccessListener<Location>() {
+            @Override
+            public void onSuccess(Location location) {
+                if(location != null){
+                    currentLocation = location;
+                    Toast.makeText(getApplicationContext(),currentLocation.getLatitude()+""+currentLocation.getLongitude(),Toast.LENGTH_SHORT).show();
+                    SupportMapFragment supportMapFragment = (SupportMapFragment) getSupportFragmentManager().findFragmentById(R.id.google_map);
+                    supportMapFragment.getMapAsync(ReportPotholeActivity.this);
+                }
+            }
+        });
+    }
+
+    @Override
+    public void onMapReady(GoogleMap googleMap) {
+        LatLng latLng = new LatLng(currentLocation.getLatitude(),currentLocation.getLongitude());
+        MarkerOptions markerOptions = new MarkerOptions().position(latLng).title("You are Here");
+        googleMap.animateCamera(CameraUpdateFactory.newLatLng(latLng));
+        googleMap.animateCamera(CameraUpdateFactory.newLatLngZoom(latLng,15));
+        googleMap.addMarker(markerOptions);
+    }
+
 
     private void SelectVideo(){
         Intent intent = new Intent();
@@ -328,6 +397,7 @@ public class ReportPotholeActivity extends AppCompatActivity {
             }
         });
     }
+
 
     private void update_imageView_layout(Boolean isImageLoaded){
         LinearLayout hint_view = findViewById(R.id.upload_image_hint_view);
@@ -363,6 +433,11 @@ public class ReportPotholeActivity extends AppCompatActivity {
                 Toast.makeText(this, "Camera Permission needed", Toast.LENGTH_SHORT).show();
             }
         }
+        else if (requestCode == LOCATION_REQUEST_CODE) {
+            if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                fetchLastLocation();
+            }
+        }
     }
 
     private void OpenImageFileChooser(){
@@ -393,6 +468,20 @@ public class ReportPotholeActivity extends AppCompatActivity {
                     inputMessage.getEditText().setText(result.get(0));
                 }
                 break;
+            case PLACE_PICKER_REQUEST:
+                if (resultCode == RESULT_OK) {
+                    com.google.android.gms.location.places.Place place = PlacePicker.getPlace(data, this);
+                    StringBuilder stringBuilder = new StringBuilder();
+                    lat = String.valueOf((((com.google.android.gms.location.places.Place) place).getLatLng().latitude));
+                    lang = String.valueOf((((com.google.android.gms.location.places.Place) place).getLatLng().longitude));
+                    /*stringBuilder.append("LATITUDE : ");
+                    stringBuilder.append(lat);
+                    stringBuilder.append("\n");
+                    stringBuilder.append("LONGITUDE : ");
+                    stringBuilder.append(lang);*/
+                }
+                break;
+
         }
 
 
@@ -496,7 +585,7 @@ public class ReportPotholeActivity extends AppCompatActivity {
 
                                     String mTimeKey = mTime + "-"+saveCurrentDate;
 
-                                    Upload upload = new Upload(uri.toString(), mPotholeType, mAddress, mLandmark, mDimension, mComment, mDate, mDateFull, mTime, mSeverity,  mName, mEmail, mPhone, mUserId, mTimeKey, mStatus);
+                                    Upload upload = new Upload(uri.toString(), mPotholeType, mAddress, mLandmark, mDimension, mComment, mDate, mDateFull, mTime, mSeverity,  mName, mEmail, mPhone, mUserId, mTimeKey, mStatus, lat, lang);
                                     String uploadId = mDatabaseRef.push().getKey();
                                     assert uploadId != null;
                                     mDatabaseRef.child(mTimeKey).setValue(upload);
@@ -645,7 +734,7 @@ public class ReportPotholeActivity extends AppCompatActivity {
 ////                                        }
 ////                                    });
 //
-//                                    Upload upload = new Upload(uri.toString(), mPotholeType, mAddress, mLandmark, mDimension, mComment, mDate, mDateFull, mTime, mSeverity, mName, mEmail, mPhone, mUserId);
+//                                    Upload upload = new Upload(uri.toString(), mPotholeType, mAddress, mLandmark, mDimension, mComment, mDate, mDateFull, mTime, mSeverity, mName, mEmail, mPhone, mUserId, lat, lang);
 //                                    String uploadId = mDatabaseRef.push().getKey();
 //                                    assert uploadId != null;
 //                                    mDatabaseRef.child(uploadId).setValue(upload);
