@@ -45,7 +45,7 @@ public class MoreDetailsActivity extends AppCompatActivity {
         mAuth = FirebaseAuth.getInstance();
         currentUserID = mAuth.getCurrentUser().getUid();
         UsersRef = FirebaseDatabase.getInstance().getReference().child("Users").child("Citizens").child(currentUserID);
-        UsersRef1 = FirebaseDatabase.getInstance().getReference().child("users").child("citizen");
+        UsersRef1 = FirebaseDatabase.getInstance().getReference().child("users");
         name3 = findViewById(R.id.name3);
         username3= findViewById(R.id.username3);
 
